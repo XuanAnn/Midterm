@@ -1,18 +1,19 @@
 package com.example.midterm.repository
 
+import android.content.Context
 import android.net.Uri
 import com.example.midterm.model.Product
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
-import java.util.*
+import java.io.File
+import java.io.FileOutputStream
+import java.util.UUID
 
-class ProductRepository {
+class ProductRepository(private val context: Context) {
     private val firestore = FirebaseFirestore.getInstance()
-    private val storage = FirebaseStorage.getInstance()
     private val productsCollection = firestore.collection("products")
 
     fun getProducts(): Flow<List<Product>> = callbackFlow {
@@ -33,11 +34,11 @@ class ProductRepository {
 
     suspend fun addProduct(product: Product, imageUri: Uri?): Result<Unit> {
         return try {
-            var imageUrl = product.imageUrl
+            var localPath = product.imageUrl
             if (imageUri != null) {
-                imageUrl = uploadImage(imageUri)
+                localPath = saveImageLocally(imageUri) // Lưu vào máy, lấy path
             }
-            val finalProduct = product.copy(imageUrl = imageUrl)
+            val finalProduct = product.copy(imageUrl = localPath)
             productsCollection.add(finalProduct.toMap()).await()
             Result.success(Unit)
         } catch (e: Exception) {
@@ -47,11 +48,11 @@ class ProductRepository {
 
     suspend fun updateProduct(product: Product, imageUri: Uri?): Result<Unit> {
         return try {
-            var imageUrl = product.imageUrl
+            var localPath = product.imageUrl
             if (imageUri != null) {
-                imageUrl = uploadImage(imageUri)
+                localPath = saveImageLocally(imageUri)
             }
-            val finalProduct = product.copy(imageUrl = imageUrl)
+            val finalProduct = product.copy(imageUrl = localPath)
             productsCollection.document(product.id).update(finalProduct.toMap()).await()
             Result.success(Unit)
         } catch (e: Exception) {
@@ -68,10 +69,22 @@ class ProductRepository {
         }
     }
 
-    private suspend fun uploadImage(uri: Uri): String {
-        val fileName = UUID.randomUUID().toString()
-        val ref = storage.reference.child("images/$fileName")
-        ref.putFile(uri).await()
-        return ref.downloadUrl.await().toString()
+    private fun saveImageLocally(uri: Uri): String {
+        // Tạo thư mục "images" trong bộ nhớ trong của App nếu chưa có
+        val imagesDir = File(context.filesDir, "images")
+        if (!imagesDir.exists()) {
+            imagesDir.mkdirs()
+        }
+
+        val fileName = "${UUID.randomUUID()}.jpg"
+        val file = File(imagesDir, fileName)
+
+        context.contentResolver.openInputStream(uri)?.use { inputStream ->
+            FileOutputStream(file).use { outputStream ->
+                inputStream.copyTo(outputStream)
+            }
+        }
+
+        return file.absolutePath
     }
 }

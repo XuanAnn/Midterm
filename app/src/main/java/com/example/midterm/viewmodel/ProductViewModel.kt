@@ -1,7 +1,8 @@
 package com.example.midterm.viewmodel
 
+import android.app.Application
 import android.net.Uri
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.midterm.model.Product
 import com.example.midterm.repository.ProductRepository
@@ -10,8 +11,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class ProductViewModel : ViewModel() {
-    private val repository = ProductRepository()
+// Thay đổi ViewModel thành AndroidViewModel để lấy Context
+class ProductViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val repository = ProductRepository(application)
 
     private val _products = MutableStateFlow<List<Product>>(emptyList())
     val products: StateFlow<List<Product>> = _products.asStateFlow()

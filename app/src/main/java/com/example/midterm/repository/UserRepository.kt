@@ -29,10 +29,27 @@ class UserRepository {
         }
         awaitClose { subscription.remove() }
     }
-
+    suspend fun addUser(user: User): Result<Unit> {
+        return try {
+            val docRef = collection.document()
+            val newUser = user.copy(id = docRef.id)
+            docRef.set(newUser).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
     suspend fun deleteUser(userId: String): Result<Unit> {
         return try {
             collection.document(userId).delete().await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    suspend fun updateUser(user: User): Result<Unit> {
+        return try {
+            collection.document(user.id).set(user).await()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
